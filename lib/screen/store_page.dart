@@ -2,19 +2,69 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_application_2/card_productos/productos_card.dart';
 import 'package:flutter_application_2/models/cart_model.dart';
+import 'package:flutter_application_2/widgets/header_page.dart';
 import 'package:provider/provider.dart';
 
-class StorePage extends StatelessWidget {
+class StorePage extends StatefulWidget {
   const StorePage({super.key});
 
-  Future<List<CartItem>> obtenerProductos() async {
+  @override
+  State<StorePage> createState() => _StorePageState();
+}
+
+class _StorePageState extends State<StorePage> {
+  List<CartItem> _allProducts = [];
+  String _selectedCategory = 'Todo';
+  String _searchTerm = '';
+  final TextEditingController _searchController = TextEditingController();
+
+  @override
+  void initState() {
+    super.initState();
+    _loadProducts();
+  }
+
+  Future<void> _loadProducts() async {
     final snapshot =
-        await FirebaseFirestore.instance
-            .collection('Productos')
-            .get(); // <- nombre exacto
-    return snapshot.docs
-        .map((doc) => CartItem.fromMap(doc.id, doc.data()))
-        .toList();
+        await FirebaseFirestore.instance.collection('Productos').get();
+    final productos =
+        snapshot.docs
+            .map((doc) => CartItem.fromMap(doc.id, doc.data()))
+            .toList();
+    setState(() {
+      _allProducts = productos;
+    });
+  }
+
+  List<String> get _categories {
+    final uniqueCategories =
+        _allProducts.map((p) => p.category).toSet().toList();
+    return ['Todo', ...uniqueCategories];
+  }
+
+  List<CartItem> get _filteredProducts {
+    List<CartItem> categoryFiltered =
+        _selectedCategory == 'Todo'
+            ? _allProducts
+            : _allProducts
+                .where((p) => p.category == _selectedCategory)
+                .toList();
+
+    if (_searchTerm.isNotEmpty) {
+      return categoryFiltered
+          .where(
+            (p) => p.name.toLowerCase().contains(_searchTerm.toLowerCase()),
+          )
+          .toList();
+    }
+
+    return categoryFiltered;
+  }
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
   }
 
   @override
@@ -22,49 +72,112 @@ class StorePage extends StatelessWidget {
     final cart = Provider.of<CartModel>(context);
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Tienda')),
-      body: FutureBuilder<List<CartItem>>(
-        future: obtenerProductos(),
-        builder: (context, snapshot) {
-          if (snapshot.connectionState == ConnectionState.waiting) {
-            return const Center(child: CircularProgressIndicator());
-          }
+      appBar: const HeaderPage(showBackButton: false),
+      body: Column(
+        children: [
+          // 🔍 Buscador
+          Padding(
+            padding: const EdgeInsets.all(16.0),
+            child: TextField(
+              controller: _searchController,
+              decoration: InputDecoration(
+                hintText: 'Buscar productos...',
+                prefixIcon: const Icon(Icons.search),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(20),
+                ),
+                filled: true,
+                fillColor: Colors.grey.shade200,
+              ),
+              onChanged: (value) => setState(() => _searchTerm = value),
+            ),
+          ),
 
-          if (snapshot.hasError) {
-            return Center(child: Text('Error: ${snapshot.error}'));
-          }
-
-          final productos = snapshot.data ?? [];
-
-          return ListView.builder(
-            itemCount: productos.length,
-            itemBuilder: (context, index) {
-              final producto = productos[index];
-              return ProductCard(
-                id: producto.id,
-                name: producto.name,
-                imageUrl: producto.imageUrl,
-                price: producto.price,
-                category: producto.category,
-                onAddToCart: () {
-                  cart.addItem(
-                    producto.id,
-                    producto.name,
-                    producto.imageUrl,
-                    producto.price,
-                    producto.category,
-                  );
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(
-                      content: Text('${producto.name} agregado al carrito'),
-                      duration: const Duration(seconds: 2),
+          // 🏷️ Filtro de Categorías
+          SizedBox(
+            height: 50,
+            child: ListView.builder(
+              scrollDirection: Axis.horizontal,
+              itemCount: _categories.length,
+              itemBuilder: (context, index) {
+                final cat = _categories[index];
+                final selected = cat == _selectedCategory;
+                return GestureDetector(
+                  onTap: () => setState(() => _selectedCategory = cat),
+                  child: Container(
+                    margin: const EdgeInsets.symmetric(horizontal: 8),
+                    padding: const EdgeInsets.symmetric(horizontal: 16),
+                    decoration: BoxDecoration(
+                      color: selected ? Colors.blue : Colors.grey.shade200,
+                      borderRadius: BorderRadius.circular(20),
                     ),
-                  );
-                },
-              );
-            },
-          );
-        },
+                    alignment: Alignment.center,
+                    child: Text(
+                      cat,
+                      style: TextStyle(
+                        color: selected ? Colors.white : Colors.black,
+                        fontWeight:
+                            selected ? FontWeight.bold : FontWeight.normal,
+                      ),
+                    ),
+                  ),
+                );
+              },
+            ),
+          ),
+
+          const SizedBox(height: 10),
+
+          // 📦 Lista de productos
+          Expanded(
+            child:
+                _allProducts.isEmpty
+                    ? const Center(child: CircularProgressIndicator())
+                    : _filteredProducts.isEmpty
+                    ? const Center(
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(Icons.search_off, size: 64, color: Colors.grey),
+                          SizedBox(height: 16),
+                          Text(
+                            'No se encontraron productos',
+                            style: TextStyle(fontSize: 18, color: Colors.grey),
+                          ),
+                        ],
+                      ),
+                    )
+                    : ListView.builder(
+                      padding: const EdgeInsets.all(8),
+                      itemCount: _filteredProducts.length,
+                      itemBuilder: (context, index) {
+                        final p = _filteredProducts[index];
+                        return ProductCard(
+                          id: p.id,
+                          name: p.name,
+                          imageUrl: p.imageUrl,
+                          price: p.price,
+                          category: p.category,
+                          onAddToCart: () {
+                            cart.addItem(
+                              p.id,
+                              p.name,
+                              p.imageUrl,
+                              p.price,
+                              p.category,
+                            );
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                content: Text('${p.name} agregado al carrito'),
+                                duration: const Duration(seconds: 2),
+                              ),
+                            );
+                          },
+                        );
+                      },
+                    ),
+          ),
+        ],
       ),
     );
   }

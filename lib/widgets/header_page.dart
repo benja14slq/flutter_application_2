@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_application_2/app_colors/app_colors.dart';
 import 'package:flutter_application_2/models/cart_model.dart';
+import 'package:flutter_application_2/screen/home.dart';
+import 'package:flutter_application_2/screen/pedidos.dart';
+import 'package:flutter_application_2/screen/store_page.dart';
 import 'package:provider/provider.dart';
 
 /// Un AppBar reutilizable que:
@@ -37,7 +40,13 @@ class HeaderPage extends StatelessWidget implements PreferredSizeWidget {
           showBackButton // Usa el parámetro en lugar de Navigator.canPop()
               ? IconButton(
                 icon: const Icon(Icons.arrow_back, color: Colors.white),
-                onPressed: () => Navigator.of(context).pop(),
+                onPressed: () {
+                  Navigator.of(context).pushAndRemoveUntil(
+                    MaterialPageRoute(builder: (context) => const HomePage()),
+                    (Route<dynamic> route) =>
+                        false, // Elimina todas las rutas anteriores
+                  );
+                },
               )
               : null,
       actions: [
@@ -47,7 +56,9 @@ class HeaderPage extends StatelessWidget implements PreferredSizeWidget {
             IconButton(
               icon: const Icon(Icons.shopping_cart, color: Colors.white),
               onPressed: () {
-                // tu lógica para ir al carrito
+                Navigator.of(context).push(
+                  MaterialPageRoute(builder: (context) => const OrderPage()),
+                );
               },
             ),
             Consumer<CartModel>(

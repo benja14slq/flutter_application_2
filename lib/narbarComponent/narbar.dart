@@ -71,9 +71,7 @@ class _FloatingNavBarState extends State<FloatingNavBar> {
           vertical: 8,
         ),
         decoration: BoxDecoration(
-          color: isSelected
-              ? activeColor.withOpacity(0.1)
-              : Colors.transparent,
+          color: isSelected ? activeColor.withOpacity(0.1) : Colors.transparent,
           borderRadius: BorderRadius.circular(25),
         ),
         child: Column(
@@ -90,8 +88,7 @@ class _FloatingNavBarState extends State<FloatingNavBar> {
               style: TextStyle(
                 color: isSelected ? activeColor : inactiveColor,
                 fontSize: 12,
-                fontWeight:
-                    isSelected ? FontWeight.bold : FontWeight.normal,
+                fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
               ),
             ),
           ],
